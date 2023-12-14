@@ -24,58 +24,51 @@ const urlClientOnline= 'https://spotiguess.com'
 
 const urlClient = urlClientLocal
 
-app.post('/login', (req, res) => {
-    console.log("login")
-    const code = req.body.code;
-
-    console.log(code)
-    console.log(process.env.SECRET)
-
-    const spotifyApi = new SpotifyWebApi({
-
-        redirectUri: urlClient,
-        clientId: '80256b057e324c5f952f3577ff843c29',
-        clientSecret: process.env.SECRET
-    })
-
-   
-
-    spotifyApi.authorizationCodeGrant(code).then(data => {
-        console.log("success")
-        console.log(data.body.expires_in)
-        res.json({
-            accessToken: data.body.access_token,
-            refreshToken: data.body.refresh_token,
-            expiresIn: data.body.expires_in
-        })
-    }).catch((err) =>{
-        console.log(err)
-        res.sendStatus(400)})
-
-});
-
-
-app.post('/refresh', (req,res)=>{
+app.post("/refresh", (req, res) => {
     const refreshToken = req.body.refreshToken
     const spotifyApi = new SpotifyWebApi({
-        redirectUri: urlClient,
-        clientId: '80256b057e324c5f952f3577ff843c29',
-        clientSecret: process.env.SECRET,
-        refreshToken
+      redirectUri: urlClient,
+      clientId: process.env.CLIENT_ID,
+      clientSecret: process.env.CLIENT_SECRET,
+      refreshToken,
     })
-
-    spotifyApi.refreshAccessToken().then(
-        (data)=>{
-            res.json({
-                accessToken: data.body.accessToken,
-                expiresIn: data.body.expiresIn
-            })
+  
+    spotifyApi
+      .refreshAccessToken()
+      .then(data => {
+        res.json({
+          accessToken: data.body.access_token,
+          expiresIn: data.body.expires_in,
         })
-        .catch(()=>{
-            res.sendStatus(400)
+      })
+      .catch(err => {
+        console.log(err)
+        res.sendStatus(400)
+      })
+  })
+  
+  app.post("/login", (req, res) => {
+    const code = req.body.code
+    const spotifyApi = new SpotifyWebApi({
+      redirectUri: urlClient,
+      clientId: process.env.CLIENT_ID,
+      clientSecret: process.env.CLIENT_SECRET,
+    })
+  
+    spotifyApi
+      .authorizationCodeGrant(code)
+      .then(data => {
+        res.json({
+          accessToken: data.body.access_token,
+          refreshToken: data.body.refresh_token,
+          expiresIn: data.body.expires_in,
         })
-
-}) 
+      })
+      .catch(err => {
+        console.log(err)
+        res.sendStatus(400)
+      })
+  })
 
 const spotifyApi = new SpotifyWebApi({
     clientId: '80256b057e324c5f952f3577ff843c29',
