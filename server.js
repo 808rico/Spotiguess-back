@@ -72,7 +72,7 @@ app.post("/refresh", (req, res) => {
 
 const spotifyApi = new SpotifyWebApi({
     clientId: '80256b057e324c5f952f3577ff843c29',
-    clientSecret: process.env.SECRET
+    clientSecret: process.env.CLIENT_SECRET
 })
 
 async function connectToSpotify() {
