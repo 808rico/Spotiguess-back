@@ -111,18 +111,18 @@ app.post('/generate', async (req, res) => {
 
     // Accédez au tableau des chansons à l'intérieur de la clé 'playlist'
         const songs = gptContent.playlist;
-        const songIds = [];
+        const songUris = [];
 
         for (let song of songs) {
             console.log(song)
             const searchResponse = await spotifyApi.searchTracks(song);
             if (searchResponse.body.tracks.items.length > 0) {
-                const trackId = searchResponse.body.tracks.items[0].id;
-                songIds.push(trackId);
+                const trackUri = searchResponse.body.tracks.items[0].uri;
+                songUris.push(trackUri);
             }
         }
 
-        res.json({ songIds: songIds });
+        res.json({ songUris: songUris });
     } catch (err) {
         console.error('Erreur lors de la génération de la playlist:', err);
         res.status(500).send('Erreur interne du serveur');
