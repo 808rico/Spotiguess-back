@@ -97,7 +97,7 @@ app.post('/generate', async (req, res) => {
             //response_format: { "type": "json_object" },
             messages: [{ 
                 role: "user", 
-                content: `Generate a 15 song playlist based on the following input: ${userInput}. Answer only with a JSON array, for each item return the song and the artist like this example {"playlist": ["Billie Jean - Michael Jackson", "One - U2"]}`
+                content: `Generate a 3 real songs playlist based on the following input: ${userInput}. Answer only with a JSON array, for each item return the song and the artist like this example {"playlist": ["Billie Jean - Michael Jackson", "One - U2"]}`
             }],
             
             temperature: 1,
