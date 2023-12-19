@@ -129,6 +129,8 @@ app.post('/generate', async (req, res) => {
     }
 });
 
-app.listen(3001);
+const PORT = process.env.PORT || 3001; // Utilisation de la variable d'environnement PORT de Heroku ou, par défaut, du port 3000
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
 
-//app.listen(process.env.PORT);
