@@ -21,7 +21,7 @@ app.use(bodyParser.json())
 
 //const urlClientLocal = 'http://localhost:3000/'
 //const urlClientOnline= 'https://spotiguess.com'
-const urlClientOnline='https://658114a974c1ec000819e053--scintillating-cucurucho-f3d460.netlify.app/'
+const urlClientOnline='https://scintillating-cucurucho-f3d460.netlify.app/'
 
 const urlClient = urlClientOnline
 
