@@ -14,7 +14,7 @@ const openai = new OpenAI({
 
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: true }));
 
 app.use(bodyParser.json())
 
