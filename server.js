@@ -19,10 +19,11 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json())
 
-const urlClientLocal = 'http://localhost:3000/'
-const urlClientOnline= 'https://spotiguess.com'
+//const urlClientLocal = 'http://localhost:3000/'
+//const urlClientOnline= 'https://spotiguess.com'
+const urlClientOnline='https://658114a974c1ec000819e053--scintillating-cucurucho-f3d460.netlify.app/'
 
-const urlClient = urlClientLocal
+const urlClient = urlClientOnline
 
 app.post("/refresh", (req, res) => {
     const refreshToken = req.body.refreshToken
