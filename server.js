@@ -14,9 +14,7 @@ const openai = new OpenAI({
 
 
 const app = express();
-app.use(cors({
-  origin: 'https://scintillating-cucurucho-f3d460.netlify.app'
-}));
+app.use(cors());
 
 app.use(bodyParser.json())
 
