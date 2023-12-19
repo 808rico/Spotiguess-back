@@ -1,5 +1,3 @@
-
-
 const express = require('express');
 const SpotifyWebApi = require('spotify-web-api-node');
 const cors = require('cors');
@@ -16,7 +14,10 @@ const openai = new OpenAI({
 
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'https://scintillating-cucurucho-f3d460.netlify.app'
+}));
+
 app.use(bodyParser.json())
 
 //const urlClientLocal = 'http://localhost:3000/'
