@@ -115,11 +115,12 @@ app.post('/generate', async (req, res) => {
         const songUris = [];
 
         for (let song of songs) {
-            console.log(song)
+            
             const searchResponse = await spotifyApi.searchTracks(song);
             if (searchResponse.body.tracks.items.length > 0) {
                 const trackUri = searchResponse.body.tracks.items[0].uri;
                 songUris.push(trackUri);
+                console.log(searchResponse.body.tracks.items[0].name)
             }
         }
 
