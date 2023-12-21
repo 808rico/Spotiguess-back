@@ -93,11 +93,12 @@ app.post('/generate', async (req, res) => {
 
         const gptResponse = await openai.chat.completions.create({
 
-            model: "gpt-3.5-turbo",//gpt-4-1106-preview
-            //response_format: { "type": "json_object" },
+            //model: "gpt-3.5-turbo",
+            model: 'gpt-4-1106-preview',
+            response_format: { "type": "json_object" },
             messages: [{ 
                 role: "user", 
-                content: `Generate a 3 real songs playlist based on the following input: ${userInput}. Answer only with a JSON array, for each item return the song and the artist like this example {"playlist": ["Billie Jean - Michael Jackson", "One - U2"]}`
+                content: `Generate a 5 real songs playlist based on the following input: ${userInput}. Answer only with a JSON array, for each item return the song and the artist like this example {"playlist": ["Billie Jean - Michael Jackson", "One - U2"]}`
             }],
             
             temperature: 1,
