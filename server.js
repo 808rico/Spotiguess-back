@@ -20,6 +20,7 @@ app.use(bodyParser.json())
 
 //const urlClientLocal = 'http://localhost:3000/'
 //const urlClientOnline= 'https://spotiguess.com'
+//const urlClientOnline='http://localhost:3000/'
 const urlClientOnline='https://scintillating-cucurucho-f3d460.netlify.app'
 
 const urlClient = urlClientOnline
@@ -98,7 +99,7 @@ app.post('/generate', async (req, res) => {
             response_format: { "type": "json_object" },
             messages: [{ 
                 role: "user", 
-                content: `Generate a 5 real songs playlist based on the following input: ${userInput}. Answer only with a JSON array, for each item return the song and the artist like this example {"playlist": ["Billie Jean - Michael Jackson", "One - U2"]}`
+                content: `Generate a 10 real songs playlist based on the following input: ${userInput}. Answer only with a JSON array, for each item return the song and the artist like this example {"playlist": ["Billie Jean - Michael Jackson", "One - U2"]}`
             }],
             
             temperature: 1,
