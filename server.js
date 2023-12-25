@@ -19,9 +19,9 @@ app.use(cors({ origin: true }));
 app.use(bodyParser.json())
 
 //const urlClientLocal = 'http://localhost:3000/'
-//const urlClientOnline= 'https://spotiguess.com'
+const urlClientOnline= 'https://app.spotiguess.com'
 //const urlClientOnline='http://localhost:3000/'
-const urlClientOnline='https://scintillating-cucurucho-f3d460.netlify.app'
+//const urlClientOnline='https://scintillating-cucurucho-f3d460.netlify.app'
 
 const urlClient = urlClientOnline
 
