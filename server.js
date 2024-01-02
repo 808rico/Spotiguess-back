@@ -19,11 +19,12 @@ app.use(cors({ origin: true }));
 app.use(bodyParser.json())
 
 //const urlClientLocal = 'http://localhost:3000/'
-const urlClientOnline= 'https://app.spotiguess.com/'
+const urlClientOnline = 'https://app.spotiguess.com/'
 //const urlClientOnline='http://localhost:3000/'
 //const urlClientOnline='https://scintillating-cucurucho-f3d460.netlify.app'
 
 const urlClient = urlClientOnline
+
 
 app.post("/refresh", (req, res) => {
     const refreshToken = req.body.refreshToken
@@ -49,6 +50,8 @@ app.post("/refresh", (req, res) => {
   })
   
   app.post("/login", (req, res) => {
+    console.log('login')  
+    console.log(urlClient)
     const code = req.body.code
     const spotifyApi = new SpotifyWebApi({
       redirectUri: urlClient,
