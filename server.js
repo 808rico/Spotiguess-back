@@ -2,6 +2,7 @@ const express = require('express');
 const SpotifyWebApi = require('spotify-web-api-node');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const recommendationRoutes = require('./recommendationRoutes');
 
 require("dotenv").config();
 
@@ -17,8 +18,8 @@ const mixpanel = Mixpanel.init('26a673ded09e692f1f1a58859b17001b');
 
 const app = express();
 app.use(cors({ origin: true }));
-
 app.use(bodyParser.json())
+app.use(recommendationRoutes);
 
 //const urlClientLocal = 'http://localhost:3000/'
 //const urlClientOnline = 'https://app.spotiguess.com/'
