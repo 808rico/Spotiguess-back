@@ -17,7 +17,10 @@ const spotifyApi = new SpotifyWebApi({
     clientSecret: process.env.CLIENT_SECRET
 })
 
-
+function selectRandom(items, count, maxCount = items.length) {
+    const shuffled = [...items].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, Math.min(count, maxCount));
+}
 
 // Exemple de route à la racine
 router.post('/ai-recommendations', async (req, res) => {
@@ -71,6 +74,62 @@ router.post('/ai-recommendations', async (req, res) => {
     } catch (err) {
         console.error('Erreur lors de la génération de la playlist:', err);
         res.status(500).send('Internal server error', err);
+    }
+});
+
+// Fonction pour sélectionner aléatoirement des éléments dans une liste
+
+
+router.post('/playlist-recommendations', async (req, res) => {
+    try {
+        const accessToken = req.body.accessToken;
+        spotifyApi.setAccessToken(accessToken);
+
+        // Initialisez le tableau des artistes sélectionnés
+        let selectedArtists = [];
+
+        // Effectuez les requêtes pour récupérer les données de l'utilisateur
+        const [topTracksData, topArtistsData, likedSongsData] = await Promise.all([
+            spotifyApi.getMyTopTracks({ limit: 10 }),
+            spotifyApi.getMyTopArtists({ limit: 10 }),
+            spotifyApi.getMySavedTracks({ limit: 10 })
+        ]);
+
+        // Sélectionnez aléatoirement un top track et extrayez l'artiste
+        const selectedTrack = selectRandom(topTracksData.body.items, 1)[0];
+        selectedArtists.push(selectedTrack.artists[0].name);
+
+        // Sélectionnez aléatoirement deux top artists
+        const selectedTopArtists = selectRandom(topArtistsData.body.items, 2);
+        selectedArtists.push(selectedTopArtists[0].name);
+        selectedArtists.push(selectedTopArtists[1].name);
+        // Sélectionnez aléatoirement un liked song et extrayez l'artiste
+        const selectedLikedSong = selectRandom(likedSongsData.body.items, 1)[0];
+        selectedArtists.push(selectedLikedSong.track.artists[0].name);
+
+
+        console.log(selectedArtists)
+
+        let playlistRecommendations = [];
+
+        // 5. Pour chaque artiste sélectionné, recherchez des playlists
+        for (const artist of selectedArtists) {
+            console.log("boucle for")
+            const playlists = await spotifyApi.searchPlaylists(artist);
+            // 6. Filtrez et sélectionnez aléatoirement des playlists
+            const selectedPlaylists = selectRandom(playlists.body.playlists.items, 1, 15);
+            playlistRecommendations = playlistRecommendations.concat(selectedPlaylists);
+        }
+
+        // 7. Assurez-vous d'avoir 4 playlists, ajustez si nécessaire
+        playlistRecommendations = playlistRecommendations.slice(0, 4);
+
+        // Finalement, renvoyez la liste des recommandations
+        res.json({ playlistRecommendations });
+
+    } catch (err) {
+        console.error('Erreur lors de la génération de la playlist:', err);
+        res.status(500).send('Internal server error');
     }
 });
 
