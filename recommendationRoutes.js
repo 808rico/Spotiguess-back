@@ -149,5 +149,73 @@ router.post('/playlist-recommendations', async (req, res) => {
 });
 
 
+router.post('/artist-recommendations', async (req, res) => {
+    try {
+        const accessToken = req.body.accessToken;
+        spotifyApi.setAccessToken(accessToken);
+
+        const userInfo = await spotifyApi.getMe();
+        const username = userInfo.body.id;
+        const email = userInfo.body.email;
+
+        // Initialisez le tableau des artistes sélectionnés
+        let artistRecommendations = [];
+
+        // Effectuez les requêtes pour récupérer les données de l'utilisateur
+        const [topTracksData, topArtistsData, likedSongsData] = await Promise.all([
+            spotifyApi.getMyTopTracks({ limit: 10 }),
+            spotifyApi.getMyTopArtists({ limit: 10 }),
+            spotifyApi.getMySavedTracks({ limit: 10 })
+        ]);
+
+        // Sélectionnez aléatoirement un top track et extrayez l'artiste
+        const selectedTrack = selectRandom(topTracksData.body.items, 1)[0];
+        artistRecommendations.push(selectedTrack.artists[0]);
+
+        // Sélectionnez aléatoirement deux top artists
+        const selectedTopArtists = selectRandom(topArtistsData.body.items, 2);
+        artistRecommendations.push(selectedTopArtists[0]);
+        artistRecommendations.push(selectedTopArtists[1]);
+        // Sélectionnez aléatoirement un liked song et extrayez l'artiste
+        const selectedLikedSong = selectRandom(likedSongsData.body.items, 1)[0];
+        artistRecommendations.push(selectedLikedSong.track.artists[0]);
+
+        
+
+        let finalArtistDetails = [];
+
+        // Récupérez les détails complets pour chaque artiste recommandé
+        for (const artist of artistRecommendations) {
+            try {
+                const artistDetails = await spotifyApi.getArtist(artist.uri.split(':')[2]);
+                finalArtistDetails.push(artistDetails.body);
+            } catch (error) {
+                console.error(`Erreur lors de la récupération des détails de l'artiste ${artist.name}:`, error);
+                // Gérer l'erreur comme vous le souhaitez, par exemple en continuant avec le prochain artiste
+                continue;
+            }
+        }
+
+
+        const artistNames = artistRecommendations.map(artist => artist.name).join(', ');
+
+
+
+        if (process.env.NODE_ENV === 'production') {
+            mixpanel.track('PLAYLIST-SUGGESTION', {
+                distinct_id: username,
+                email: email,
+                suggestion: artistNames,
+            });
+        }
+
+        // Finalement, renvoyez la liste des recommandations
+        res.json({ artistRecommendations: finalArtistDetails });
+
+    } catch (err) {
+        console.error('Erreur lors de la génération des recommendations artiste:', err);
+        res.status(500).send('Error while searching for playlist recommendations');
+    }
+});
 
 module.exports = router;
