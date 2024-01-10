@@ -85,6 +85,10 @@ router.post('/playlist-recommendations', async (req, res) => {
         const accessToken = req.body.accessToken;
         spotifyApi.setAccessToken(accessToken);
 
+        const userInfo = await spotifyApi.getMe();
+        const username = userInfo.body.id;
+        const email = userInfo.body.email;
+
         // Initialisez le tableau des artistes sélectionnés
         let selectedArtists = [];
 
@@ -123,6 +127,17 @@ router.post('/playlist-recommendations', async (req, res) => {
 
         // 7. Assurez-vous d'avoir 4 playlists, ajustez si nécessaire
         playlistRecommendations = playlistRecommendations.slice(0, 4);
+        const playlistNames = playlistRecommendations.map(playlist => playlist.name).join(', ');
+
+
+
+        if (process.env.NODE_ENV === 'production') {
+            mixpanel.track('PLAYLIST-SUGGESTION', {
+                distinct_id: username,
+                email: email,
+                suggestion: playlistNames,
+            });
+        }
 
         // Finalement, renvoyez la liste des recommandations
         res.json({ playlistRecommendations });
