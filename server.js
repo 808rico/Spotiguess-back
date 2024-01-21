@@ -116,12 +116,15 @@ app.post("/login", (req, res) => {
 
 async function canUserPlay(username) {
   const currentDate = new Date();
+  console.log('can user play', username)
   
   // Vérifier si l'utilisateur a un pass valide
   const checkPass = await pool.query(
     'SELECT COUNT(*) FROM purchases WHERE user_id = $1 AND expiration_date > $2',
     [username, currentDate]
   );
+
+  console.log(checkPass.rows[0])
   const hasValidPass = parseInt(checkPass.rows[0].count) > 0;
 
   if (hasValidPass) {
