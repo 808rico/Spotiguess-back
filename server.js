@@ -3,6 +3,7 @@ const SpotifyWebApi = require('spotify-web-api-node');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const recommendationRoutes = require('./recommendationRoutes');
+const paymentRoutes = require('./paymentRoutes');
 
 require("dotenv").config();
 
@@ -18,8 +19,18 @@ const mixpanel = Mixpanel.init('26a673ded09e692f1f1a58859b17001b');
 
 const app = express();
 app.use(cors({ origin: true }));
-app.use(bodyParser.json())
+
+app.use((req, res, next) => {
+  if (req.originalUrl === '/webhook') { // Remplacez '/webhook-route' par le chemin exact de votre webhook
+      next();
+  } else {
+      bodyParser.json()(req, res, next);
+  }
+});
+
+
 app.use(recommendationRoutes);
+app.use(paymentRoutes);
 
 //const urlClientLocal = 'http://localhost:3000/'
 //const urlClientOnline = 'https://app.spotiguess.com/'
@@ -32,6 +43,27 @@ const spotifyApi = new SpotifyWebApi({
   clientId: '80256b057e324c5f952f3577ff843c29',
   clientSecret: process.env.CLIENT_SECRET
 })
+
+const { Pool } = require('pg');
+let pool;
+
+if (process.env.NODE_ENV === 'production') {
+    pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: {
+            rejectUnauthorized: false
+        }
+    });
+} else {
+    // Environnement de développement
+    pool = new Pool({
+        user: 'postgres',
+        host: 'localhost',
+        database: 'blindtests',
+        password: process.env.PASSWORD_DATABASE,
+        port: 5432
+    });
+}
 
 
 app.post("/refresh", (req, res) => {
@@ -82,6 +114,33 @@ app.post("/login", (req, res) => {
     })
 })
 
+async function canUserPlay(username) {
+  const currentDate = new Date();
+  
+  // Vérifier si l'utilisateur a un pass valide
+  const checkPass = await pool.query(
+    'SELECT COUNT(*) FROM purchases WHERE user_id = $1 AND expiration_date > $2',
+    [username, currentDate]
+  );
+  const hasValidPass = parseInt(checkPass.rows[0].count) > 0;
+
+  if (hasValidPass) {
+    return true; // L'utilisateur peut jouer car il a un pass valide
+  }
+
+  // Vérifier le quota de blindtests
+  const oneDayAgo = new Date();
+  oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+  const checkQuota = await pool.query(
+    'SELECT COUNT(*) FROM blindtests WHERE user_id = $1 AND test_time > $2',
+    [username, oneDayAgo]
+  );
+  const testCount = parseInt(checkQuota.rows[0].count);
+
+  return testCount < 5; // L'utilisateur peut jouer si le quota n'est pas dépassé
+}
+
+
 
 app.post('/ai-generated', async (req, res) => {
   try {
@@ -89,12 +148,17 @@ app.post('/ai-generated', async (req, res) => {
     const spotifyAccessToken = req.body.spotifyAccessToken;
 
     spotifyApi.setAccessToken(spotifyAccessToken);
-
-
     // Récupérer les informations de l'utilisateur Spotify
     const userInfo = await spotifyApi.getMe();
     const username = userInfo.body.id;
     const email = userInfo.body.email;
+
+    
+    const canPlay = await canUserPlay(username);
+
+    if (!canPlay) {
+      return res.status(400).send('Quizz quota exceeded');
+    }
 
 
 
@@ -134,7 +198,12 @@ app.post('/ai-generated', async (req, res) => {
       }
     }
 
-    res.json({ songUris: songUris });
+    await pool.query(
+      'INSERT INTO blindtests (user_id) VALUES ($1)',
+      [username]
+    );
+
+
     if (process.env.NODE_ENV === 'production') {
       mixpanel.track('AI-GENERATED', {
         distinct_id: username,
@@ -144,6 +213,8 @@ app.post('/ai-generated', async (req, res) => {
         tracklist: songNames,
       });
     }
+
+    res.json({ songUris: songUris });
 
   } catch (err) {
     console.error('Erreur lors de la génération de la playlist:', err);
@@ -165,7 +236,11 @@ app.post('/liked-songs', async (req, res) => {
     const email = userInfo.body.email;
 
 
+    const canPlay = await canUserPlay(username);
 
+    if (!canPlay) {
+      return res.status(400).send('Quizz quota exceeded');
+    }
 
     // Obtenir le nombre total de chansons sauvegardées
     const data = await spotifyApi.getMySavedTracks({ limit: 1 });
@@ -221,6 +296,12 @@ app.post('/playlist', async (req, res) => {
     const username = userInfo.body.id;
     const email = userInfo.body.email;
 
+    const canPlay = await canUserPlay(username);
+
+    if (!canPlay) {
+      return res.status(400).send('Quizz quota exceeded or no valid pass');
+    }
+
 
     const playlistData = await spotifyApi.getPlaylist(playlistId);
     const playlistName = playlistData.body.name;
@@ -270,7 +351,12 @@ app.post('/artist', async (req, res) => {
     const username = userInfo.body.id;
     const email = userInfo.body.email;
 
+    const canPlay = await canUserPlay(username);
 
+    if (!canPlay) {
+      return res.status(400).send('Quizz quota exceeded or no valid pass');
+    }
+    
     const artistData = await spotifyApi.getArtist(artistId);
     const artistName = artistData.body.name;
 
