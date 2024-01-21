@@ -201,6 +201,8 @@ app.post('/ai-generated', async (req, res) => {
       }
     }
 
+    console.log('username',username)
+
     await pool.query(
       'INSERT INTO blindtests (user_id) VALUES ($1)',
       [username]
@@ -264,7 +266,10 @@ app.post('/liked-songs', async (req, res) => {
     const randomSongs = songResults.map(result => result.body.items[0].track);
     //console.log(randomSongs)
 
-
+    await pool.query(
+      'INSERT INTO blindtests (user_id) VALUES ($1)',
+      [username]
+    );
 
     // Suivi Mixpanel
     if (process.env.NODE_ENV === 'production') {
@@ -302,7 +307,7 @@ app.post('/playlist', async (req, res) => {
     const canPlay = await canUserPlay(username);
 
     if (!canPlay) {
-      return res.status(400).send('Quizz quota exceeded or no valid pass');
+      return res.status(400).send('Quizz quota exceeded');
     }
 
 
@@ -320,6 +325,10 @@ app.post('/playlist', async (req, res) => {
     const shuffledTracks = allTracks.sort(() => 0.5 - Math.random());
     const selectedTracks = shuffledTracks.slice(0, 20).map(track => track.track.uri);
 
+    await pool.query(
+      'INSERT INTO blindtests (user_id) VALUES ($1)',
+      [username]
+    );
 
     // Suivi Mixpanel
     if (process.env.NODE_ENV === 'production') {
@@ -391,7 +400,10 @@ app.post('/artist', async (req, res) => {
     }
 
 
-
+    await pool.query(
+      'INSERT INTO blindtests (user_id) VALUES ($1)',
+      [username]
+    );
 
     // Suivi Mixpanel
     if (process.env.NODE_ENV === 'production') {

@@ -49,7 +49,7 @@ router.post('/create-checkout-session', async (req, res) => {
     const userInfo = await spotifyApi.getMe();
     const userId = userInfo.body.id;
     
-
+    console.log('priceId', priceId);
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
