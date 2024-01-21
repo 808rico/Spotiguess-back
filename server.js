@@ -253,7 +253,7 @@ app.post('/liked-songs', async (req, res) => {
 
     // Générer 20 indices aléatoires et récupérer les chansons
     const randomSongPromises = [];
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 10; i++) {
       const randomSongNumber = Math.floor(Math.random() * totalTracks);
       randomSongPromises.push(
         spotifyApi.getMySavedTracks({ limit: 1, offset: randomSongNumber })
@@ -323,7 +323,7 @@ app.post('/playlist', async (req, res) => {
 
     // Mélanger les pistes et sélectionner les 20 premières URIs
     const shuffledTracks = allTracks.sort(() => 0.5 - Math.random());
-    const selectedTracks = shuffledTracks.slice(0, 20).map(track => track.track.uri);
+    const selectedTracks = shuffledTracks.slice(0, 10).map(track => track.track.uri);
 
     await pool.query(
       'INSERT INTO blindtests (user_id) VALUES ($1)',
@@ -393,7 +393,7 @@ app.post('/artist', async (req, res) => {
     });
 
     // Random selection of 15 songs
-    while (trackUris.length < 15 && allTracks.length > 0) {
+    while (trackUris.length < 10 && allTracks.length > 0) {
       let randomIndex = Math.floor(Math.random() * allTracks.length);
       trackUris.push(allTracks[randomIndex].uri);
       allTracks.splice(randomIndex, 1); // Remove the selected track
