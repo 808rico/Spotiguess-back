@@ -22,9 +22,9 @@ app.use(cors({ origin: true }));
 
 app.use((req, res, next) => {
   if (req.originalUrl === '/webhook') { // Remplacez '/webhook-route' par le chemin exact de votre webhook
-      next();
+    next();
   } else {
-      bodyParser.json()(req, res, next);
+    bodyParser.json()(req, res, next);
   }
 });
 
@@ -48,23 +48,29 @@ const { Pool } = require('pg');
 let pool;
 
 if (process.env.NODE_ENV === 'production') {
-    pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: {
-            rejectUnauthorized: false
-        }
-    });
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
 } else {
-    // Environnement de développement
-    pool = new Pool({
-        user: 'postgres',
-        host: 'localhost',
-        database: 'blindtests',
-        password: process.env.PASSWORD_DATABASE,
-        port: 5432
-    });
+  // Environnement de développement
+  pool = new Pool({
+    user: 'postgres',
+    host: 'localhost',
+    database: 'blindtests',
+    password: process.env.PASSWORD_DATABASE,
+    port: 5432
+  });
 }
 
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]]; // échange les éléments
+  }
+}
 
 app.post("/refresh", (req, res) => {
   const refreshToken = req.body.refreshToken
@@ -117,7 +123,7 @@ app.post("/login", (req, res) => {
 async function canUserPlay(username) {
   const currentDate = new Date();
   console.log('can user play', username)
-  
+
   // Vérifier si l'utilisateur a un pass valide
   const checkPass = await pool.query(
     'SELECT COUNT(*) FROM purchases WHERE user_id = $1 AND expiration_date > $2',
@@ -141,6 +147,8 @@ async function canUserPlay(username) {
   const testCount = parseInt(checkQuota.rows[0].count);
 
   return testCount < 5; // L'utilisateur peut jouer si le quota n'est pas dépassé
+
+
 }
 
 
@@ -156,7 +164,7 @@ app.post('/ai-generated', async (req, res) => {
     const username = userInfo.body.id;
     const email = userInfo.body.email;
 
-    
+
     const canPlay = await canUserPlay(username);
 
     if (!canPlay) {
@@ -187,6 +195,8 @@ app.post('/ai-generated', async (req, res) => {
 
     // Accédez au tableau des chansons à l'intérieur de la clé 'playlist'
     const songs = gptContent.playlist;
+    const seedSongIds = [];
+    const seedArtistIds = [];
     const songUris = [];
     const songNames = [];
 
@@ -194,14 +204,32 @@ app.post('/ai-generated', async (req, res) => {
 
       const searchResponse = await spotifyApi.searchTracks(song);
       if (searchResponse.body.tracks.items.length > 0) {
+       
         const trackUri = searchResponse.body.tracks.items[0].uri;
         songUris.push(trackUri);
-        console.log(searchResponse.body.tracks.items[0].name)
+
+        const trackId = searchResponse.body.tracks.items[0].id;
+        seedSongIds.push(trackId);
+
+        artistId = searchResponse.body.tracks.items[0].artists[0].id
+        seedArtistIds.push(artistId)
+
         songNames.push(searchResponse.body.tracks.items[0].name)
       }
     }
 
-    console.log('username',username)
+    const recommendations = await spotifyApi.getRecommendations({
+      seed_tracks: seedSongIds.slice(0,5).join(','),
+      //seed_artists: seedArtistIds.join(','),
+    limit:100,
+    target_popularity:90
+  })
+
+  const recommendedTrackUris = recommendations.body.tracks.map(track => track.uri);
+
+  const finalTracks = songUris.concat(recommendedTrackUris)
+
+
 
     await pool.query(
       'INSERT INTO blindtests (user_id) VALUES ($1)',
@@ -219,14 +247,13 @@ app.post('/ai-generated', async (req, res) => {
       });
     }
 
-    res.json({ songUris: songUris });
+    res.json({ songUris: finalTracks });
 
   } catch (err) {
     console.error('Erreur lors de la génération de la playlist:', err);
     res.status(500).send('Erreur interne du serveur');
   }
 });
-
 
 
 app.post('/liked-songs', async (req, res) => {
@@ -251,25 +278,34 @@ app.post('/liked-songs', async (req, res) => {
     const data = await spotifyApi.getMySavedTracks({ limit: 1 });
     const totalTracks = data.body.total;
 
-    // Générer 20 indices aléatoires et récupérer les chansons
-    const randomSongPromises = [];
-    for (let i = 0; i < 10; i++) {
-      const randomSongNumber = Math.floor(Math.random() * totalTracks);
-      randomSongPromises.push(
-        spotifyApi.getMySavedTracks({ limit: 1, offset: randomSongNumber })
-      );
+
+    // Initialiser un tableau pour stocker tous les titres récupérés
+    let allTracks = [];
+    const limit = 50; // Définir la limite maximale par requête
+
+    // Calculer le nombre de requêtes nécessaires
+    const numberOfRequests = Math.ceil(totalTracks / limit);
+
+    // Boucle pour récupérer tous les titres par lots de 50
+    for (let i = 0; i < numberOfRequests; i++) {
+      const offset = i * limit; // Calculer l'offset pour chaque requête
+      const trackData = await spotifyApi.getMySavedTracks({ limit: limit, offset: offset });
+      allTracks = allTracks.concat(trackData.body.items); // Ajouter les résultats au tableau
     }
 
-    // Attendre que toutes les promesses se résolvent
-    const songResults = await Promise.all(randomSongPromises);
-    //console.log(songResults)
-    const randomSongs = songResults.map(result => result.body.items[0].track);
-    //console.log(randomSongs)
+
+
+    // Si vous souhaitez extraire uniquement les objets track de chaque élément sauvegardé :
+    let tracks = allTracks.map(item => item.track);
+    shuffleArray(tracks);
+
+    //tracks= tracks.slice(0,20)
 
     await pool.query(
       'INSERT INTO blindtests (user_id) VALUES ($1)',
       [username]
     );
+
 
     // Suivi Mixpanel
     if (process.env.NODE_ENV === 'production') {
@@ -280,14 +316,13 @@ app.post('/liked-songs', async (req, res) => {
       });
     }
 
-    res.json(randomSongs);
+    res.json(tracks);
 
   } catch (err) {
     console.error("Error in /liked-songs:", err);
     res.status(500).send('Erreur interne du serveur');
   }
 });
-
 
 
 app.post('/playlist', async (req, res) => {
@@ -322,8 +357,8 @@ app.post('/playlist', async (req, res) => {
     }
 
     // Mélanger les pistes et sélectionner les 20 premières URIs
-    const shuffledTracks = allTracks.sort(() => 0.5 - Math.random());
-    const selectedTracks = shuffledTracks.slice(0, 10).map(track => track.track.uri);
+    shuffleArray(allTracks)
+    const finalTracks = allTracks.map(track => track.track.uri);
 
     await pool.query(
       'INSERT INTO blindtests (user_id) VALUES ($1)',
@@ -340,7 +375,7 @@ app.post('/playlist', async (req, res) => {
       });
     }
 
-    res.json(selectedTracks);
+    res.json(finalTracks);
 
   } catch (err) {
     console.error("Error in /liked-songs:", err);
@@ -368,11 +403,11 @@ app.post('/artist', async (req, res) => {
     if (!canPlay) {
       return res.status(400).send('Quizz quota exceeded or no valid pass');
     }
-    
+
     const artistData = await spotifyApi.getArtist(artistId);
     const artistName = artistData.body.name;
 
-    const albumsData = await spotifyApi.getArtistAlbums(artistId);
+    const albumsData = await spotifyApi.getArtistAlbums(artistId, { limit: 50 });
     const albums = albumsData.body.items;
 
     // Prepare to gather track data
@@ -392,12 +427,21 @@ app.post('/artist', async (req, res) => {
       allTracks.push(...albumTracks.body.items);
     });
 
+    
+
+    shuffleArray(allTracks)
+
+     trackUris = allTracks.map(track => track.uri)
+
+
+
     // Random selection of 15 songs
+    /*
     while (trackUris.length < 10 && allTracks.length > 0) {
       let randomIndex = Math.floor(Math.random() * allTracks.length);
       trackUris.push(allTracks[randomIndex].uri);
       allTracks.splice(randomIndex, 1); // Remove the selected track
-    }
+    }*/
 
 
     await pool.query(
@@ -421,6 +465,53 @@ app.post('/artist', async (req, res) => {
     res.status(500).send('Erreur interne du serveur');
   }
 });
+
+app.post('/keep-playing', async (req, res) => {
+  const accessToken = req.body.accessToken;
+  let gameType = req.body.gameType.type
+  //mettre en majuscule et mettre tirets a la place des espaces
+  gameType = gameType.toUpperCase().replace(/\s+/g, '-');
+
+  try {
+    spotifyApi.setAccessToken(accessToken);
+
+    // Récupérer les informations de l'utilisateur Spotify
+    const userInfo = await spotifyApi.getMe();
+    const username = userInfo.body.id;
+    const email = userInfo.body.email;
+
+
+    const canPlay = await canUserPlay(username);
+
+    if (!canPlay) {
+      return res.status(400).send('Quizz quota exceeded');
+    }
+
+
+    await pool.query(
+      'INSERT INTO blindtests (user_id) VALUES ($1)',
+      [username]
+    );
+
+    console.log("gametype", gameType)
+    // Suivi Mixpanel
+    if (process.env.NODE_ENV === 'production') {
+      mixpanel.track(`KEEP PLAYING - ${gameType}`, {
+        distinct_id: username,
+        email: email,
+        // Autres propriétés si nécessaire
+      });
+    }
+
+    res.json({ message: "You are authorized to continue playing.", authorized: true });
+
+  } catch (err) {
+    console.error("Error in /liked-songs:", err);
+    res.status(500).send('Erreur interne du serveur');
+  }
+});
+
+
 
 const PORT = process.env.PORT || 3001; // Utilisation de la variable d'environnement PORT de Heroku ou, par défaut, du port 3000
 app.listen(PORT, () => {
