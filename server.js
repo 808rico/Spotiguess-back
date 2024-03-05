@@ -204,7 +204,7 @@ app.post('/ai-generated', async (req, res) => {
 
       const searchResponse = await spotifyApi.searchTracks(song);
       if (searchResponse.body.tracks.items.length > 0) {
-       
+
         const trackUri = searchResponse.body.tracks.items[0].uri;
         songUris.push(trackUri);
 
@@ -219,15 +219,15 @@ app.post('/ai-generated', async (req, res) => {
     }
 
     const recommendations = await spotifyApi.getRecommendations({
-      seed_tracks: seedSongIds.slice(0,5).join(','),
+      seed_tracks: seedSongIds.slice(0, 5).join(','),
       //seed_artists: seedArtistIds.join(','),
-    limit:100,
-    target_popularity:90
-  })
+      limit: 100,
+      target_popularity: 90
+    })
 
-  const recommendedTrackUris = recommendations.body.tracks.map(track => track.uri);
+    const recommendedTrackUris = recommendations.body.tracks.map(track => track.uri);
 
-  const finalTracks = songUris.concat(recommendedTrackUris)
+    const finalTracks = songUris.concat(recommendedTrackUris)
 
 
 
@@ -278,10 +278,47 @@ app.post('/liked-songs', async (req, res) => {
     const data = await spotifyApi.getMySavedTracks({ limit: 1 });
     const totalTracks = data.body.total;
 
-
-    // Initialiser un tableau pour stocker tous les titres récupérés
     let allTracks = [];
-    const limit = 50; // Définir la limite maximale par requête
+    const limit = 50;
+    let tracks= [];
+
+    if (totalTracks > 1000) {
+      const offsets = new Set();
+      while (offsets.size < 20) {
+        const randomOffset = Math.floor(Math.random() * (totalTracks - limit));
+        offsets.add(randomOffset);
+      }
+
+      // Exécuter les requêtes en parallèle pour récupérer les pistes avec les offsets aléatoires
+      const trackPromises = Array.from(offsets).map(offset =>
+        spotifyApi.getMySavedTracks({ limit: limit, offset: offset })
+      );
+
+      // Attendre que toutes les requêtes soient terminées
+      const trackResponses = await Promise.all(trackPromises);
+
+      // Concaténer les résultats et supprimer les doublons
+      let uniqueTracks = new Map();
+      trackResponses.forEach(response => {
+        response.body.items.forEach(item => {
+          if (!uniqueTracks.has(item.track.id)) {
+            uniqueTracks.set(item.track.id, item.track);
+          }
+        });
+      });
+
+      // Convertir la Map en Array
+      tracks = Array.from(uniqueTracks.values());
+
+      // Mélanger les pistes récupérées
+      shuffleArray(tracks);
+
+
+    }
+
+    else{
+
+      // Définir la limite maximale par requête
 
     // Calculer le nombre de requêtes nécessaires
     const numberOfRequests = Math.ceil(totalTracks / limit);
@@ -296,8 +333,12 @@ app.post('/liked-songs', async (req, res) => {
 
 
     // Si vous souhaitez extraire uniquement les objets track de chaque élément sauvegardé :
-    let tracks = allTracks.map(item => item.track);
+    tracks = allTracks.map(item => item.track);
     shuffleArray(tracks);
+
+    //tracks= tracks.slice(0,20)
+    }
+
 
     //tracks= tracks.slice(0,20)
 
@@ -427,11 +468,11 @@ app.post('/artist', async (req, res) => {
       allTracks.push(...albumTracks.body.items);
     });
 
-    
+
 
     shuffleArray(allTracks)
 
-     trackUris = allTracks.map(track => track.uri)
+    trackUris = allTracks.map(track => track.uri)
 
 
 
