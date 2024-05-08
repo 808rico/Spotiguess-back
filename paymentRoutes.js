@@ -47,7 +47,15 @@ router.post('/create-checkout-session', async (req, res) => {
 
     // Récupérer les informations de l'utilisateur Spotify
     const userInfo = await spotifyApi.getMe();
-    const userId = userInfo.body.id;
+    const userId = userInfo.body.id; 
+    const email = userInfo.body.email;
+
+    if (process.env.NODE_ENV === 'production') {
+      mixpanel.track('PAYMENT STARTED', {
+        distinct_id: userId,
+        email: email,
+      });
+    }
     
     console.log('priceId', priceId);
 
