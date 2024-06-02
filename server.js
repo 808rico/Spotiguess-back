@@ -175,7 +175,7 @@ app.post('/ai-generated', async (req, res) => {
 
     const gptResponse = await openai.chat.completions.create({
       //model: "gpt-3.5-turbo",
-      model: 'gpt-4-1106-preview',
+      model: 'gpt-4o',
       response_format: { "type": "json_object" },
       messages: [{
         role: "user",
