@@ -18,23 +18,10 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { Pool } = require('pg');
 let pool;
 
-if (process.env.NODE_ENV === 'production') {
-    pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: {
-            rejectUnauthorized: false
-        }
-    });
-} else {
-    // Environnement de développement
-    pool = new Pool({
-        user: 'postgres',
-        host: 'localhost',
-        database: 'blindtests',
-        password: process.env.PASSWORD_DATABASE,
-        port: 5432
-    });
-}
+
+pool = new Pool({
+  connectionString: process.env.DATABASE_URL
+});
 
 
 router.post('/create-checkout-session', async (req, res) => {
@@ -47,7 +34,7 @@ router.post('/create-checkout-session', async (req, res) => {
 
     // Récupérer les informations de l'utilisateur Spotify
     const userInfo = await spotifyApi.getMe();
-    const userId = userInfo.body.id; 
+    const userId = userInfo.body.id;
     const email = userInfo.body.email;
 
     if (process.env.NODE_ENV === 'production') {
@@ -56,7 +43,7 @@ router.post('/create-checkout-session', async (req, res) => {
         email: email,
       });
     }
-    
+
     console.log('priceId', priceId);
 
     const session = await stripe.checkout.sessions.create({
@@ -83,54 +70,54 @@ router.post('/create-checkout-session', async (req, res) => {
 });
 
 
-router.post('/webhook', express.raw({type: 'application/json'}), async (req, res) => {
-  
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+
   const payload = req.body;
   const sig = req.headers['stripe-signature'];
 
   let event;
 
   try {
-      event = stripe.webhooks.constructEvent(payload, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(payload, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.log(err.message);
-      res.status(400).send(`Webhook Error: ${err.message}`);
-      return;
+    res.status(400).send(`Webhook Error: ${err.message}`);
+    return;
   }
-  
+
   // Gérez l'événement de paiement réussi
   if (event.type === 'checkout.session.completed') {
-    
-    
-      const session = event.data.object;
 
-      // Ajoutez ici le code pour enregistrer les détails dans la base de données
-      // Par exemple, session.customer pour l'ID client, etc.
 
-      const userId = session.metadata.userId;
-      const purchaseType = session.metadata.purchaseType;
+    const session = event.data.object;
 
-      //const userId = 'aymericoco34'
-      //const purchaseType = 'UNLIMITED_PASS'
+    // Ajoutez ici le code pour enregistrer les détails dans la base de données
+    // Par exemple, session.customer pour l'ID client, etc.
 
-      const currentDate = new Date();
-      const expirationDate = new Date();
-      if (purchaseType === '24HOURS') {
-        expirationDate.setDate(expirationDate.getDate() + 1);
-      }
+    const userId = session.metadata.userId;
+    const purchaseType = session.metadata.purchaseType;
 
-      if (purchaseType === 'UNLIMITED_PASS') {
-        expirationDate.setDate(expirationDate.getDate() + 10*365);
-      }
+    //const userId = 'aymericoco34'
+    //const purchaseType = 'UNLIMITED_PASS'
 
-      try {
-        const query = 'INSERT INTO purchases (user_id, purchase_type, purchase_date, expiration_date) VALUES ($1, $2, $3, $4)';
-        const values = [userId, purchaseType, currentDate, expirationDate];
-        await pool.query(query, values);
+    const currentDate = new Date();
+    const expirationDate = new Date();
+    if (purchaseType === '24HOURS') {
+      expirationDate.setDate(expirationDate.getDate() + 1);
+    }
+
+    if (purchaseType === 'UNLIMITED_PASS') {
+      expirationDate.setDate(expirationDate.getDate() + 10 * 365);
+    }
+
+    try {
+      const query = 'INSERT INTO purchases (user_id, purchase_type, purchase_date, expiration_date) VALUES ($1, $2, $3, $4)';
+      const values = [userId, purchaseType, currentDate, expirationDate];
+      await pool.query(query, values);
     } catch (err) {
-        console.error('Erreur lors de l\'insertion dans la base de données', err);
-        res.status(500).send('Erreur serveur');
-        return;
+      console.error('Erreur lors de l\'insertion dans la base de données', err);
+      res.status(500).send('Erreur serveur');
+      return;
     }
 
   }

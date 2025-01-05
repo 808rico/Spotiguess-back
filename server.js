@@ -47,23 +47,11 @@ const spotifyApi = new SpotifyWebApi({
 const { Pool } = require('pg');
 let pool;
 
-if (process.env.NODE_ENV === 'production') {
-  pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false
-    }
-  });
-} else {
-  // Environnement de développement
-  pool = new Pool({
-    user: 'postgres',
-    host: 'localhost',
-    database: 'blindtests',
-    password: process.env.PASSWORD_DATABASE,
-    port: 5432
-  });
-}
+
+pool = new Pool({
+  connectionString: process.env.DATABASE_URL
+});
+
 
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -280,7 +268,7 @@ app.post('/liked-songs', async (req, res) => {
 
     let allTracks = [];
     const limit = 50;
-    let tracks= [];
+    let tracks = [];
 
     if (totalTracks > 1000) {
       const offsets = new Set();
@@ -316,27 +304,27 @@ app.post('/liked-songs', async (req, res) => {
 
     }
 
-    else{
+    else {
 
       // Définir la limite maximale par requête
 
-    // Calculer le nombre de requêtes nécessaires
-    const numberOfRequests = Math.ceil(totalTracks / limit);
+      // Calculer le nombre de requêtes nécessaires
+      const numberOfRequests = Math.ceil(totalTracks / limit);
 
-    // Boucle pour récupérer tous les titres par lots de 50
-    for (let i = 0; i < numberOfRequests; i++) {
-      const offset = i * limit; // Calculer l'offset pour chaque requête
-      const trackData = await spotifyApi.getMySavedTracks({ limit: limit, offset: offset });
-      allTracks = allTracks.concat(trackData.body.items); // Ajouter les résultats au tableau
-    }
+      // Boucle pour récupérer tous les titres par lots de 50
+      for (let i = 0; i < numberOfRequests; i++) {
+        const offset = i * limit; // Calculer l'offset pour chaque requête
+        const trackData = await spotifyApi.getMySavedTracks({ limit: limit, offset: offset });
+        allTracks = allTracks.concat(trackData.body.items); // Ajouter les résultats au tableau
+      }
 
 
 
-    // Si vous souhaitez extraire uniquement les objets track de chaque élément sauvegardé :
-    tracks = allTracks.map(item => item.track);
-    shuffleArray(tracks);
+      // Si vous souhaitez extraire uniquement les objets track de chaque élément sauvegardé :
+      tracks = allTracks.map(item => item.track);
+      shuffleArray(tracks);
 
-    //tracks= tracks.slice(0,20)
+      //tracks= tracks.slice(0,20)
     }
 
 
