@@ -436,9 +436,11 @@ app.post('/artist', async (req, res) => {
 
     const artistData = await spotifyApi.getArtist(artistId);
     const artistName = artistData.body.name;
+    
 
     const albumsData = await spotifyApi.getArtistAlbums(artistId, { limit: 50 });
     const albums = albumsData.body.items;
+
 
     // Prepare to gather track data
     let trackUris = [];
@@ -446,7 +448,9 @@ app.post('/artist', async (req, res) => {
 
     // Get tracks from each album
     albums.forEach(album => {
-      albumTracksPromises.push(spotifyApi.getAlbumTracks(album.id));
+      if (album.album_group === 'album' || album.album_group === 'single') {
+        albumTracksPromises.push(spotifyApi.getAlbumTracks(album.id));
+      }
     });
 
     const albumsTracksData = await Promise.all(albumTracksPromises);
