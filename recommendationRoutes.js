@@ -25,55 +25,83 @@ function selectRandom(items, count, maxCount = items.length) {
 // Exemple de route à la racine
 router.post('/ai-recommendations', async (req, res) => {
 
+    // Function to shuffle an array
+    const shuffleArray = array => array.sort(() => Math.random() - 0.5);
+
+
     try {
 
-
+        console.log("AI recommendations")
         const accessToken = req.body.accessToken;
 
+        // Définir le token d'accès Spotify
         spotifyApi.setAccessToken(accessToken);
 
+        // Récupérer les informations utilisateur
         const userInfo = await spotifyApi.getMe();
         const username = userInfo.body.id;
         const email = userInfo.body.email;
 
+        // Récupérer les artistes préférés de l'utilisateur
+        const topArtistsData = await spotifyApi.getMyTopArtists({ limit: 10 });
+        let topArtists = topArtistsData.body.items.map(artist => artist.name);
+        topArtists = shuffleArray(topArtists);
 
+        const topSongsData = await spotifyApi.getMyTopTracks({ limit: 10 });
+        let topSongs = topSongsData.body.items.map(song => song.name);
+        topSongs = shuffleArray(topSongs);
+
+        console.log(topArtists.join(', '));
+
+
+
+        // Construire le prompt avec les artistes préférés
+        const prompt = `
+            Here are the user's favorite artists: ${topArtists.join(', ')} and top songs: ${topSongs.join(', ')},
+            Provide 4 specific and niched down playlist title and subtitle recommendations.
+            
+            Avoid mixing genres and provide a clear theme for each playlist.
+
+            2 playlists should be based on the user's favorite artists and songs.
+            2 playlists should be based on a genre and a timeperiod that the user could like based on their favorite artists and songs.
+
+            Only answer in a JSON format. The JSON should include one list called playlist.
+            Each item of the list has 2 properties: title and subtitle.
+            Don't answer anything else except JSON.
+        `;
+
+        // Envoyer la requête à OpenAI
         const gptResponse = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            //model: 'gpt-4-1106-preview',
-            //response_format: { "type": "json_object" },
-            messages: [{
-                role: "user",
-                content: `provide 4 randomly selected specific and niched down  playlist title and subtitle, it can include specific artist, genre or period. Only answer in a JSON format,  The JSON should include one list called playlist. Each item of the list has 2 properties title and subtitle. Don't answer anything else except JSON.`
-            }],
-
-            temperature: 1,
-            max_tokens: 400
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+            max_tokens: 400,
         });
 
-        const gptContent = JSON.parse(gptResponse.choices[0].message.content);
+        let rawContent = gptResponse.choices[0].message.content;
+
+        // Supprimer les backticks et les balises de bloc de code
+        rawContent = rawContent.replace(/```json|```/g, '').trim();
+
+        const gptContent = JSON.parse(rawContent);
 
 
-
+        // Tracker avec Mixpanel en production
         if (process.env.NODE_ENV === 'production') {
             mixpanel.track('AI-SUGGESTION', {
                 distinct_id: username,
                 email: email,
                 suggestion: gptContent,
+                topArtists: topArtists,
             });
         }
 
-
-        // Supposer que la réponse est une liste de chansons sous forme de chaîne de caractères
-        // Retourner la réponse formatée
+        // Retourner les suggestions de playlists
         res.json(gptContent);
-
-
-
-
 
     } catch (err) {
         console.error('Erreur lors de la génération de la playlist:', err);
-        res.status(500).send('Internal server error', err);
+        res.status(500).send('Internal server error');
     }
 });
 
@@ -180,7 +208,7 @@ router.post('/artist-recommendations', async (req, res) => {
         const selectedLikedSong = selectRandom(likedSongsData.body.items, 1)[0];
         artistRecommendations.push(selectedLikedSong.track.artists[0]);
 
-        
+
 
         let finalArtistDetails = [];
 
