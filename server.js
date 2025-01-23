@@ -4,6 +4,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const recommendationRoutes = require('./recommendationRoutes');
 const paymentRoutes = require('./paymentRoutes');
+const settingsRoutes = require('./settingsRoutes');
 
 require("dotenv").config();
 
@@ -21,7 +22,7 @@ const app = express();
 app.use(cors({ origin: true }));
 
 app.use((req, res, next) => {
-  if (req.originalUrl === '/webhook') { // Remplacez '/webhook-route' par le chemin exact de votre webhook
+  if (req.originalUrl === '/webhook') { 
     next();
   } else {
     bodyParser.json()(req, res, next);
@@ -31,6 +32,8 @@ app.use((req, res, next) => {
 
 app.use(recommendationRoutes);
 app.use(paymentRoutes);
+app.use(settingsRoutes);
+
 
 //const urlClientLocal = 'http://localhost:3000/'
 //const urlClientOnline = 'https://app.spotiguess.com/'
