@@ -359,8 +359,6 @@ app.post('/liked-songs', async (req, res) => {
 
 
 app.post('/playlist', async (req, res) => {
-
-
   try {
     const accessToken = req.body.accessToken;
     const playlistId = req.body.playlistId;
@@ -373,45 +371,72 @@ app.post('/playlist', async (req, res) => {
     const email = userInfo.body.email;
 
     const canPlay = await canUserPlay(username);
-
     if (!canPlay) {
       return res.status(400).send('Quizz quota exceeded');
     }
 
-
     const playlistData = await spotifyApi.getPlaylist(playlistId);
     const playlistName = playlistData.body.name;
 
+    // 1) Récupération du nombre total de pistes
     const { body: { total } } = await spotifyApi.getPlaylistTracks(playlistId, { limit: 1 });
-    let allTracks = [];
-    for (let offset = 0; offset < total; offset += 50) {
-      const { body: { items } } = await spotifyApi.getPlaylistTracks(playlistId, { limit: 50, offset });
-      allTracks = [...allTracks, ...items];
+
+    let finalTracks = [];
+
+    if (total <= 500) {
+      // 2) Cas où on récupère tout directement
+      let allItems = [];
+      for (let offset = 0; offset < total; offset += 50) {
+        const { body: { items } } = await spotifyApi.getPlaylistTracks(playlistId, { limit: 50, offset });
+        allItems = [...allItems, ...items];
+      }
+      shuffleArray(allItems); // si vous souhaitez mélanger
+      finalTracks = allItems.map(track => track.track.uri);
+
+    } else {
+      // 3) Cas où la playlist fait plus de 500 titres
+      //    On ne récupère que 10 batches de 50 (au maximum)
+
+      // a) Déterminer le nombre de batches
+      const numberOfBatches = Math.ceil(total / 50);  // ex: 25 si 1231 titres
+      const batchIndices = Array.from({ length: numberOfBatches }, (_, i) => i);
+
+      // b) Mélanger la liste des batches pour en prendre 10 aléatoirement
+      shuffleArray(batchIndices);
+      const selectedBatches = batchIndices.slice(0, 10); // ex: [5, 18, 3, 9, ...]
+
+      // c) Pour chaque batch sélectionné, on récupère les pistes correspondantes
+      let selectedItems = [];
+      for (const batchIndex of selectedBatches) {
+        const offset = batchIndex * 50;
+        // Spotify retournera moins de 50 si offset est proche de la fin et qu'il n'y a pas
+        // assez de titres restants, mais c'est géré automatiquement.
+        const { body: { items } } = await spotifyApi.getPlaylistTracks(playlistId, { limit: 50, offset });
+        selectedItems = [...selectedItems, ...items];
+      }
+
+      // d) Mélanger et mapper en URIs
+      shuffleArray(selectedItems);
+      finalTracks = selectedItems.map(track => track.track?.uri).filter(Boolean); // on filtre si jamais track est null
     }
 
-    // Mélanger les pistes et sélectionner les 20 premières URIs
-    shuffleArray(allTracks)
-    const finalTracks = allTracks.map(track => track.track.uri);
+    // Enregistrer le blindtest
+    await pool.query('INSERT INTO blindtests (user_id) VALUES ($1)', [username]);
 
-    await pool.query(
-      'INSERT INTO blindtests (user_id) VALUES ($1)',
-      [username]
-    );
-
-    // Suivi Mixpanel
+    // Tracking mixpanel en prod
     if (process.env.NODE_ENV === 'production') {
       mixpanel.track('PLAYLIST', {
         distinct_id: username,
         email: email,
         playlistName: playlistName,
-        // Autres propriétés si nécessaire
       });
     }
 
+    // Réponse
     res.json(finalTracks);
 
   } catch (err) {
-    console.error("Error in /liked-songs:", err);
+    console.error("Error in /playlist:", err);
     res.status(500).send('Erreur interne du serveur');
   }
 });
