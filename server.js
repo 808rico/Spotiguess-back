@@ -64,53 +64,54 @@ function shuffleArray(array) {
   }
 }
 
+// Route pour rafraîchir le token
 app.post("/refresh", (req, res) => {
-  const refreshToken = req.body.refreshToken
+  const refreshToken = req.body.refreshToken;
   const spotifyApi = new SpotifyWebApi({
     redirectUri: urlClient,
     clientId: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
     refreshToken,
-  })
+  });
 
   spotifyApi
     .refreshAccessToken()
     .then(data => {
-      res.json({
+      return res.json({
         accessToken: data.body.access_token,
-        expiresIn: data.body.expires_in,
-      })
+        expiresIn: data.body.expires_in, // en secondes
+      });
     })
     .catch(err => {
-      console.log(err)
-      res.sendStatus(400)
-    })
-})
+      console.error("Error /refresh:", err);
+      res.sendStatus(400);
+    });
+});
 
+// Route pour récupérer accessToken/refreshToken à partir du "code"
 app.post("/login", (req, res) => {
-  console.log('login')
-  console.log(urlClient)
-  const code = req.body.code
+  const code = req.body.code;
   const spotifyApi = new SpotifyWebApi({
     redirectUri: urlClient,
     clientId: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
-  })
+  });
 
   spotifyApi
     .authorizationCodeGrant(code)
     .then(data => {
-      res.json({
+      // data.body contient { access_token, refresh_token, expires_in, ... }
+      return res.json({
         accessToken: data.body.access_token,
         refreshToken: data.body.refresh_token,
-        expiresIn: data.body.expires_in,
-      })
+        expiresIn: data.body.expires_in, // en secondes
+      });
     })
     .catch(err => {
-      console.log(err)
-      res.sendStatus(400)
-    })
-})
+      console.error("Error /login:", err);
+      res.sendStatus(400);
+    });
+});
 
 async function canUserPlay(username) {
   const currentDate = new Date();
